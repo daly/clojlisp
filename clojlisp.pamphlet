@@ -1,0 +1,615 @@
+\documentclass[dvipdfm]{book}
+\usepackage{hyperref}
+\usepackage{axiom}
+\usepackage{makeidx}
+\setlength{\textwidth}{400pt}
+\makeindex
+\usepackage{graphicx}
+
+% draw a box around a text block
+\providecommand\boxed[2]{%
+\begin{center}
+\begin{tabular}{|c|}
+\hline
+\begin{minipage}{#1}
+\normalsize
+{#2}
+\end{minipage}\\
+\hline
+\end{tabular}
+\end{center}}
+
+\begin{document}
+\begin{titlepage}
+\center{\includegraphics{clojureIcon.eps}}
+\vskip 0.1in
+%\includegraphics{}\\
+\vskip 0.1in
+\center{{\Huge{Clojure in Common Lisp}}}
+\vskip 0.1in
+\center{\huge{Timothy Daly}}
+\end{titlepage}
+\pagenumbering{roman}
+\begin{verbatim}
+Portions Copyright (c) 2011 Timothy Daly
+
+The Blue Bayou image Copyright (c) 2004 Jocelyn Guidry
+
+\end{verbatim}
+
+Inclusion of names in the list of credits is based on historical
+information and is as accurate as possible. Inclusion of names
+does not in any way imply an endorsement but represents historical
+influence on Axiom development.
+\vfill
+\eject
+\begin{tabular}{lll}
+\end{tabular}
+\eject
+\tableofcontents
+\vfill
+\eject
+\setlength{\parindent}{0em}
+\setlength{\parskip}{1ex}
+{\Large{\bf New Foreword}}
+\vskip .25in
+
+This is an implementation of Clojure in Common Lisp, called ClojLisp.
+
+\vskip .25in
+%\noindent
+Tim Daly\\
+Literate Software\\
+November 14, 2011 ((iHy))
+\vfill
+\eject
+\pagenumbering{arabic}
+\setcounter{chapter}{0} % Chapter 1
+
+\chapter{Introduction}
+
+
+\chapter{The clojlisp package}
+We are defining a lisp-in-lisp so there will be a significant number
+of symbol collisions. We have to be very careful to only import symbols
+that do not conflict.
+
+\begin{chunk}{defpackage clojlisp}
+#+:AKCL (make-package "COMMON-LISP" :use '("LISP"))
+#+:AKCL (in-package "USER")
+(make-package "CLOJLISP")
+(in-package "CLOJLISP")
+
+
+\end{chunk}
+
+\chapter{The Reader}
+The reader uses the common lisp reader.
+\begin{chunk}{defun read}
+(common-lisp::defun clojlisp::read () (common-lisp::read))
+\end{chunk}
+
+\chapter{The Evaluator}
+
+\begin{chunk}{defmacro eval}
+The evaluator uses the common lisp evaluator.
+(common-lisp::defmacro clojlisp::eval (x) `(common-lisp::eval ,x))
+\end{chunk}
+
+\chapter{The Printer}
+The printer uses the common lisp printer.
+\begin{chunk}{defun print}
+(common-lisp::defun clojlisp::print (x) (common-lisp::print x))
+\end{chunk}
+
+\chapter{The Clojlisp REPL}
+By typing
+\begin{verbatim}
+   (in-package "CLOJLISP")
+   (clojlisp)
+\end{verbatim}
+you have a read-eval-print loop (REPL). The REPL knows almost nothing
+about anything so it can be quite painful. You need to qualify symbols
+that come from any other package at the moment. A working example is:
+\begin{verbatim}
+   (common-lisp::+ 2 3)
+\end{verbatim}
+\begin{chunk}{defun repl}
+(common-lisp::defun clojlisp::clojlisp ()
+ (common-lisp::loop 
+  (clojlisp::print
+    (clojlisp::eval
+     (clojlisp::read)))
+  (common-lisp::terpri)))
+\end{chunk}
+
+\chapter{Building ClojLisp from this document}
+This is the whole source listing in one file.
+When loaded, it leaves you in the clojlisp REPL.
+\section{The whole thing}
+\begin{chunk}{clojlisp}
+\getchunk{defpackage clojlisp}
+\getchunk{defun read}
+\getchunk{defmacro eval}
+\getchunk{defun print}
+\getchunk{defun repl}
+\end{chunk}
+
+\section{tangle}
+\begin{chunk}{tangle.c}
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <sys/types.h>
+#include <fcntl.h>
+
+#define DEBUG 0
+
+/* forward reference for the C compiler */
+int getchunk(char *chunkname);
+
+/* a memory mapped buffer copy of the file */
+char *buffer;
+int bufsize;
+
+/* return the length of the next line */
+int nextline(int i) {
+  int j;
+  if (i >= bufsize) return(-1);
+  for (j=0; ((i+j < bufsize) && (buffer[i+j] != '\n')); j++);
+  return(j);
+}
+
+/* output the line we need */
+int printline(int i, int length) {
+  int j;
+  for (j=0; j<length; j++) { putchar(buffer[i+j]); }
+  printf("\n");
+}
+
+/* handle begin{chunk}{chunkname}        */
+/* is this chunk name we are looking for? */
+int foundchunk(int i, char *chunkname) {
+  if ((strncmp(&buffer[i+14],chunkname,strlen(chunkname)) == 0) &&
+      (buffer[i+13] == '{') &&
+      (buffer[i+14+strlen(chunkname)] == '}')) return(1);
+  return(0);
+}
+
+/* handle end{chunk}   */
+/* is it really an end? */
+int foundEnd(int i) {
+  if ((buffer[i] == '\\') && 
+      (strncmp(&buffer[i+1],"end{chunk}",10) == 0)) {
+    return(1); 
+  }
+  return(0);
+}
+
+/* handle getchunk{chunkname} */
+/* is this line a getchunk?    */
+int foundGetchunk(int i, int linelen) {
+  int len;
+  if (strncmp(&buffer[i],"\\getchunk{",10) == 0) {
+    for(len=0; ((len < linelen) && (buffer[i+len] != '}')); len++);
+    return(len-10);
+  }
+  return(0);
+}
+
+/* Somebody did a getchunk and we need a copy of the name */
+/* malloc string storage for a copy of the getchunk name  */
+char *getChunkname(int k, int getlen) {
+  char *result = (char *)malloc(getlen+1);
+  strncpy(result,&buffer[k+10],getlen);
+  result[getlen]='\0';
+  return(result);
+}
+  
+/* print lines in this chunk, possibly recursing into getchunk */
+int printchunk(int i, int chunklinelen, char *chunkname) {
+  int j;
+  int k;
+  int linelen;
+  char *getname;
+  int getlen = 0;
+  for (k=i+chunklinelen+1; ((linelen=nextline(k)) != -1); ) {
+    if (DEBUG==2) { 
+      printf(">>>>"); printline(k,linelen); printf("<<<<\n"); 
+    }
+    if ((getlen=foundGetchunk(k,linelen)) > 0) {
+       getname = getChunkname(k,getlen);
+       getchunk(getname);
+       free(getname);
+       k=k+getlen+12l;
+    } else {
+    if ((linelen >= 11) && (foundEnd(k) == 1)) {
+      if (DEBUG) { printf("=================\\end{%s}\n",chunkname); }
+      return(k+12);
+    } else {
+      if (DEBUG==2) { 
+        printf("======== printchunk else %d %d\n",k,linelen); 
+      }
+      printline(k,linelen);
+      k=k+linelen+1;
+    }
+  }}
+  if (DEBUG==2) {
+     printf("=================\\out{%s} %d\n",chunkname,k); 
+  }
+  return(k);
+}
+
+/* find the named chunk and call printchunk on it */
+int getchunk(char *chunkname) {
+  int i;
+  int j;
+  int linelen;
+  int chunklen = strlen(chunkname);
+  for (i=0; ((linelen=nextline(i)) != -1); ) {
+    if (DEBUG==2) { 
+      printf("----"); printline(i,linelen); printf("----\n"); 
+    }
+    if ((linelen >= chunklen+15) && (foundchunk(i,chunkname) == 1)) {
+      if (DEBUG) {
+         fprintf(stderr,"=================\\getchunk(%s)\n",chunkname); 
+      }
+      i=printchunk(i,linelen,chunkname);
+    } else {
+      i=i+linelen+1;
+    }
+  }
+  if (DEBUG) { 
+    fprintf(stderr,"=================getchunk returned=%d\n",i); 
+  }
+  return(i);
+}
+
+/* memory map the input file into the global buffer and get the chunk */
+int main(int argc, char *argv[]) {
+  int fd;
+  struct stat filestat;
+  if ((argc < 2) || (argc > 3)) { 
+    perror("Usage: tangle filename chunkname");
+    exit(-1);
+  }
+  fd = open(argv[1], O_RDONLY);
+  if (fd == -1) {
+    perror("Error opening file for reading");
+    exit(-2);
+  }
+  if (fstat(fd,&filestat) < 0) {
+    perror("Error getting input file size");
+    exit(-3);
+  }
+  bufsize = (int)filestat.st_size;
+  buffer = mmap(0,filestat.st_size,PROT_READ,MAP_SHARED,fd,0);
+  if (buffer == MAP_FAILED) {
+    close(fd);
+    perror("Error reading the file");
+    exit(-4);
+  }
+  getchunk(argv[2]);
+  close(fd);
+  return(0);
+}
+   
+\end{chunk}
+
+\section{The Clojure Icon}
+\begin{chunk}{clojureIcon.eps.uu}
+begin 644 clojureIcon.eps
+M)2%04RU!9&]B92TS+C`@15!31BTS+C`*)25#<F5A=&]R.B!'24U0(%!O<W13
+M8W)I<'0@9FEL92!P;'5G:6X@5B`Q+C$W(&)Y(%!E=&5R($MI<F-H9V5S<VYE
+M<@HE)51I=&QE.B!C;&]J=7)E+6EC;VXN97!S"B4E0W)E871I;VY$871E.B!-
+M;VX@3F]V(#$T(#(Q.C,U.C0S(#(P,3$*)25$;V-U;65N=$1A=&$Z($-L96%N
+M-T)I=`HE)4QA;F=U86=E3&5V96PZ(#(*)25086=E<SH@,0HE)4)O=6YD:6YG
+M0F]X.B`Q-"`Q-"`Q,34@,3$U"B4E16YD0V]M;65N=',*)25"96=I;E!R;VQO
+M9PHE(%5S92!O=VX@9&EC=&EO;F%R>2!T;R!A=F]I9"!C;VYF;&EC=',*,3`@
+M9&EC="!B96=I;@HE)45N9%!R;VQO9PHE)5!A9V4Z(#$@,0HE(%1R86YS;&%T
+M92!F;W(@;V9F<V5T"C$T+C$W,S(R.#,T-C0U-C8Y-"`Q-"XQ-S,R,C@S-#8T
+M-38V.30@=')A;G-L871E"B4@5')A;G-L871E('1O(&)E9VEN(&]F(&9I<G-T
+M('-C86YL:6YE"C`@.3DN.3DY.3DY.3DY.3DY.3@V('1R86YS;&%T90HY.2XY
+M.3DY.3DY.3DY.3DY.#8@+3DY+CDY.3DY.3DY.3DY.3DX-B!S8V%L90HE($EM
+M86=E(&=E;VUE=')Y"C$P,"`Q,#`@.`HE(%1R86YS9F]R;6%T:6]N(&UA=')I
+M>`I;(#$P,"`P(#`@,3`P(#`@,"!="B4@4W1R:6YG<R!T;R!H;VQD(%)'0BUS
+M86UP;&5S('!E<B!S8V%N;&EN90HO<G-T<B`Q,#`@<W1R:6YG(&1E9@HO9W-T
+M<B`Q,#`@<W1R:6YG(&1E9@HO8G-T<B`Q,#`@<W1R:6YG(&1E9@I[8W5R<F5N
+M=&9I;&4@+T%30TE).#5$96-O9&4@9FEL=&5R("]2=6Y,96YG=&A$96-O9&4@
+M9FEL=&5R(')S='(@<F5A9'-T<FEN9R!P;W!]"GMC=7)R96YT9FEL92`O05-#
+M24DX-41E8V]D92!F:6QT97(@+U)U;DQE;F=T:$1E8V]D92!F:6QT97(@9W-T
+M<B!R96%D<W1R:6YG('!O<'T*>V-U<G)E;G1F:6QE("]!4T-)23@U1&5C;V1E
+M(&9I;'1E<B`O4G5N3&5N9W1H1&5C;V1E(&9I;'1E<B!B<W1R(')E861S=')I
+M;F<@<&]P?0IT<G5E(#,*)25"96=I;D1A=&$Z("`@("`@("`@.3DU,R!!4T-)
+M22!">71E<PIC;VQO<FEM86=E"E-C/3-^/@I38STS?CX*4V,],WX^"E-C/3-^
+M/@I38STS?CX*4V,],WX^"E-C/3-^/@I38STS?CX*4V,],WX^"E-C/3-^/@I3
+M8STS?CX*4V,],WX^"E-C/3-^/@I38STS?CX*4V,],WX^"F<F1#9+95H^*FA$
+M/D`Y.T0Q7"M596(N5G%*+'X^"F<F1#9-:31U4FI/;FI0,T]E2R)P:3IK<2E*
+M+'X^"F<F1#93<"1#;"1H/BQ<+&@[6U9A<"8S4T1*+'X^"F@C0$@A5&TL;2LA
+M9$,_76@C1&U^/@IH(T!(+EP]*6`X(6@D4DYH(T1M?CX*:"-`2$EL+S%M7"%O
+M3C@V:"-$;7X^"FAU/&,D45A=*5HA2SXT6G,J='X^"FAU/&,Q65]H3&XA3CU:
+M+G,J='X^"FAU/&-,:TTC*$XA5&!K,',J='X^"FER.2E16$11;W4A8B\W<FER
+M/4Y^/@II<CDI4UYL9%0L(68]7UUI<CU.?CX*:7(Y*5EM*W!842%O(2,[:7(]
+M3GX^"FI3;SM(45A<8%`A3$XJ-',J='X^"FI3;SM-65]H+F0A3S(E4G,J='X^
+M"FI3;SM8:TTB7T0A52<]/W,J='X^"FLU4$U56$-"9V$A350R2W,J='X^"FLU
+M4$U77FMP77`A4"5M9',J='X^"FLU4$U=;2M5*T4A53E21G,J='X^"FM0:U,K
+M0&(B45U`7V@Q+$HL?CX*:U!K4SA-.DDN6$TY=$=C2BQ^/@IK4&M34V<]/6=6
+M9T`T.RI*+'X^"FPR3&573C9T8"Y+)TU6(THL?CX*;#),95E7-G`N<U4D<3='
+M2BQ^/@IL,DQE7VI/*51<:7%H<#Y*+'X^"FQ-9VXN0&%!+5=`82(G.DHL?CX*
+M;$UG;CM-.6=?4DTZ:"MN2BQ^/@IL36=N5F<\7$-09T!/5C!*+'X^"FQI+7-9
+M8C\K8C)L:3)*?CX*;&DM<W!B0TM9=&QI,DI^/@IL:2UT3&),8V=8;&DR2GX^
+M"FU*9#1;3C8L,"9'4#%!)THL?CX*;4ID-%U7-B=3:U)*-BM+2BQ^/@IM2F0T
+M8VI.-B14:'4R<T)*+'X^"FUF*CU<1TLS961'3R)6<DHL?CX*;68J/5Y212=J
+M6E))0E-$2BQ^/@IM9BH]9&AO1D!-:'1L9$!*+'X^"FXL149=1TLA66)`8S9?
+M5$HL?CX*;BQ%1E]21&I>6$T\1D`M2BQ^/@IN+$5&96AO-#1+9T$H+CI*+'X^
+M"FY'8$]>1TID36!`8S9B54HL?CX*;D=@3V!21%A25DT\1D,N2BQ^/@IN1V!/
+M9FAO(BA)9T$H,3M*+'X^"FYC)EA?1U!K4$-$/F8E9$!A)7!41#XA2"%*+'X^
+M"FYC)EAA4DI?53E/;SIS4DTY3$U/3VY<1$=*+'X^"FYC)EAG:'4I*RQH/E$]
+M-6<\03%-:#Y1;41*+'X^"FYC)F,Z/4-25S1I.RI"5&DT=%MR8W)>/&UP)28M
+M-7X^"FYC)F-<2E9G5EAK4#XL6VM+<$=Q9"(I-&-P6UP_-WX^"FYC)F1-9EPU
+M3EAQ(F%P;'$A9$HF9"M!0E9R551U/7X^"F\I06-82R,D<%8A5#D]03TY3BEL
+M6$]:."MR<F@Y,5A'9U=//3DK/$YS*G1^/@IO*4%C<54A5S\P(54D76%*2%5H
+M+EYU-$11<G)H3D->;S,K44I(,ED^<RIT?CX*;RE!9%-I<&-,/"%6:VI49D5"
+M<&AM+DPO3G)R:2QI;2Q:;6!F1'0B)W,J='X^"F]$7&I,96$\03]O<#AC:54C
+M/DI`(6]48FAK=5MQ96]$83U^/@IO1%QJ4VDY9T]*<%14-"I<145$7B%P0"A5
+M;"4F:4UO1&$]?CX*;T1<:F1P)$UB7W)41&AE;#%J9DLA<C(D.6PN/R(F;T1A
+M/7X^"F==)3DS;&DN(B]+)TA'/&5B)FQL?CX*9UTE.3IL:2XB/%4D0#$O:3I2
+M)B)^/@IG724Y2VQI+B)7:7`L+G)P)3@Y-WX^"E]:)UEE1#QT0"I$/B%4)4HL
+M?CX*7UHG67!/;4E7(D]N7%!+2BQ^/@I?6B=:,&@\8&)P:#Y2)$A*+'X^"E\C
+M1D<Z0&12-W15)5-'.7X^"E\C1D=.33TC:6]<1F]L4'X^"E\C1D@E9S]M36UL
+M,5`H+'X^"F8I1VU*9W)14F=R2R4O4EA-3EUE<2,Z0E%'3SA+-&5B.2-N?CX*
+M9BE';4QK:#TH:G).;%Y`830Y1$UQ(SI"6%))+%`J:3ID,B1^/@IE+%0T0G!!
+M63!G:'-+)7)P)4I%.7X^"FQ-9VM.<C=,5T`A,ET]3"%I/4A"<5EP5&A19U)R
+M54LH9C1P?CX*;$UG:U=R.5@E5"$U94(X(6Q&(6]Q67!4:EEJ4B9"525<33I^
+M/@IL36=K1W(V-&0T;RE!1F$A5T0S3&9$<W$I<RIT?CX*;68J0U5=.$-*)4!F
+M5V4L<G)-;EUO.&HD/V%3/E<S(3$S*U4A-5-`+THL?CX*;68J0UYH.%%I(5EL
+M3D=,<G)-=2QO/%Q3,&=!.EM'(3-K;4(A-SI+/THL?CX*;68J0TY6+D1M9C$G
+M(6$W<S<M*F!R<D0V369$=$8X<RIT?CX*;D=@3S=-64-47%0H1'->:"%P22Q1
+M9'1S-"$Q,RY6(2Q?2S%*+'X^"FY'8$]08%8V5CMC3%\F.6MJ8R)<7&`\4&0A
+M,VMP0R$P4B152BQ^/@IN1V!/*$%B4G%;2BM%6"]R<5I1;VM/-R4G:#UP<B)^
+M/@IO*4%A0TU9.DY;5"DX3FAP<SAA,W)R0D-P3SDI75]Q=3997VUO5%,J<2,^
+M:GX^"F\I06%78%8M4#IC35)60W)50F1><G)#-S-::5-!2'%U-EHC;7-T2F-Q
+M(SYJ?CX*;RE!83=!8DEK6DHL0C9);U=2;V!S-F9M7W)R1#9.9D1T1CES*G1^
+M/@IO1%QF9V]J6W50<74V9F%63DE-.7%U-EUE46=G*#M4)T@T42$N<UU"(2Q?
+M3C)*+'X^"F]$7&<^;W,B331Q=39F;VHT<E-F<74V76I<85IS+%XE*2(B(3(X
+M;C4A,%(G5DHL?CX*;T1<9DQO94A-3'%U-F940RY$561Q6B0A7W%9<%%4;D-2
+M8'-Q(SYJ?CX*<"8^)V--63%(6T0^(6DL(54_)TY/5#QU,')R0RXO3SDH7C5R
+M.U%F:D!D;4HB96)4-7%^/@IP)CXG:&!6)$HZ6V5F<24A5FM/36==-G!"<G)#
+M9$%::5)@+7([469L33T_)G)I.RI$)WX^"G`F/B=@06)`95HU4")A4"%3<%U1
+M-V9>+7-S-F9M8')R3BE0;D-2839Q/EES?CX*<$%9,&1*1FT]3V--6UQ#;$)Q
+M23(A.48H6"%6:2--3SDH7C5R.U%C26XU;UM7<3Y9<WX^"G!!63!I7R(];#-K
+M4%D^7'!T:V\G(3L_/VHA5R=`<5II4F`M<CM18U1N.CI31'$^67-^/@IP05DP
+M83U3*S]+7EQN*C1H+$8R0"$W0UU$;4ID(E\A.S5J-B$Y83%82BQ^/@IP7'0Y
+M94I&;3U/4&PQ3UYP;4-O/R%,5UI;<G)"6'5/.2A>/'([46)@;C5O7&!Q674G
+M?CX*<%QT.6I?(CUL,V%O*2\^<E-)1"LA5"IE47)R0T8V6FE28#)R.U%C)&XZ
+M.E0V<5EU)WX^"G!<=#EB/5,K/TM%<CYQ/&]-8E16(44X6&=S-E1A7G)R1#9/
+M9D1T;4AS*G1^/@IP7'0U6&\T)61E<CM18F]P;%!17W([46-E;3YQ0$9Q(S$S
+M;F]J6T=N(35323)*+'X^"G!<=#8X;SQ!.V=R.U%C5W!T4&PT<CM18VIM0F-O
+M,G%99T5P<%!*16LA-SI40DHL?CX*<%QT-39O+F<]+7([46(S<&19/3AQ=3\D
+M7G([469R9T`\97%N1SPP.'X^"G$C.C\K;S0E9"IR.U%C/'`U;T`Y<CM18G5M
+M/G$]87([46)U;E$U9$UQ674G?CX*<2,Z/TUO/$$[2G([46-B<#UO6D%R.U%C
+M.VU"8VQ$<CM18S1N555</7%9=2=^/@IQ(SH^:F\N9SPV<CM18FQP+B,L,7([
+M6BI><CM18V!N7FUJ)G%9=2=^/@IQ/E5+7D0]7S8[<"8T;6IN8B8B151$7%UH
+M96$O0'1L35Y?8&]J6T=N<5EU)WX^"G$^54MG6V4D82AQ66=%;W%T.%]%:3M%
+M5%1J-E@L46YB<DEG<%!*16MQ674G?CX*<3Y52U<U4"17,6\I.%)G:VLN1D<_
+M36IC:')Q=6-S<E,D96]Q674G?CX*<3Y51U!O-"5C;'([46,A;U0Y+BER.U%B
+M8&T^<3U,<CM18F!N435E07%U.S!^/@IQ/E5(-F\\03M`<CM18UEO7#E(.W([
+M46,M;4)C;#9R.U%C)&Y555QU<74[,'X^"G$^54<K;RYG.W%R.U%B/F],06YM
+M<CM:*EYR.U%C6VY>;6HW<74[,'X^"G%9<%%*;FU?6U!R5FQL66\X<R1&<CM1
+M8RYM(U8U+7)6;&Q5;E$U9&UQ=3LP?CX*<5EP45YO(28R77)6;&QK;T!S/RAR
+M.U%C1&TG2&-:<E9L;%QN555<57%U.S!^/@IQ67!1/FYH3#-H<E9L;$9O,29D
+M97([6BI><CM18VQN7FUJ+G%U.S!^/@IQ67!046\T)6-%<CM18RYN<E=Q+G)6
+M;&Q1;2-6-%)R.U%B-FYL4&U$<74[,'X^"G%9<%$W;SQ!.RUR.U%C76\E6#8[
+M<E9L;%UM)TAC.7([46):;G!P93=Q=3LP?CX*<5EP4"QO+F<[/G([46)5;FI@
+M72)R.UHJ7G([46-1;R4S<R5Q=3LP?CX*<74V6E]N;5]:=')6;&QM;E<\9U)R
+M.U%B8&TC5C4[<E9L:VMN;%!M)'%U.S!^/@IQ=39::&\A)C)$<E9L;')N7STM
+M*W([46,M;2=(8V1R5FQL+6YP<&1T<74[,'X^"G%U-EI8;FA,,RAR5FQL:6Y/
+M15,E<CM:*EYR.U%C76\E,W)R<74[,'X^"G%U-EEO;FU?6T9R5FQL2VX\(5\Y
+M<E9L;"AM(U8T;7)6;&Q*;E$U96%R.U8Y?CX*<74V6D9O(28R6')6;&QG;D0B
+M)#UR5FQL0&TG2&-,<E9L;%5N555=-W([5CE^/@IQ=3995&YH3#-;<E9L;"]N
+M-"I+-W)6=3-?<CM18VEN7FUJ/W([5CE^/@IQ=399-6YM7UMM<E9L;"AN/"%>
+M7G)6;&Q*;2-6-$MR.UHZ:"$W:"-)2BQ^/@IQ=39:*6\A)C)K<E9L;%QN1"(D
+M+G)6;&Q8;2=(8S5R.UH[/"$Y(6542BQ^/@IQ=3987&YH3#0Y<E9L:TMN-"I*
+M.W([6BI><CM:/#XA.S8Y:4HL?CX*<CM18TQN;5]:1'([46)A;CPA7CQR5FQL
+M9FQ=1"9%(2UE(3DA-F(\/THL?CX*<CM18V!O(28R+'([46-2;D0B)"-R5FQL
+M:VQA-E1I(3%%1"\A."XU3$HL?CX*<CM18T!N:$PR/7([46%Q;C0J25=R.UHJ
+M7G([46-3;R4S<S9R.U8Y?CX*<CM18R5N;5]:5W)6;&Q?;5I`32-R5FQK;VTC
+M5C4M<E9L:TQN;%!M;G([5CE^/@IR.U%C3&\A)C(V<E9L;&UM8D!G-7)6;&PW
+M;2=(8UIR5FQK:VYP<&56<CM6.7X^"G([46)B;FA,,E9R5FQL4FU223AG<E9U
+M,U]R.U%C5F\E,W,O<CM6.7X^"G([46,E;FU?6G1R5FQL66U:0$TQ<E9L;#9M
+M(U8U)G)6;&PA;FQ0;6YR.U8Y?CX*<CM18TQO(28R1')6;&QK;6)`9SER5FQL
+M2FTG2&-6<E9L;#5N<'!E5G([5CE^/@IR.U%B8FYH3#,H<E9L;$9M4DDY*7)6
+M=3-?<CM18V!O)3-S+W([5CE^/@IR.U%C)6YM7ULI<E9L;#UM=5M54'([46-7
+M;2-6-&=R5FQL(6YL4&UN<CM6.7X^"G([46-,;R$F,DER5FQL8VXH6W`I<CM1
+M8V!M)TAC2')6;&PU;G!P959R.U8Y?CX*<CM18F)N:$PS-7)6;&MM;6UD02-Q
+M=3\D7G([46-@;R4S<R]R.U8Y?CX*<CM18R5N;5];*7)6;&P];75;5C)Q=3\C
+M12$V1RT](3-'8&XA+G0N2THL?CX*<CM18TQO(28R27)6;&QC;BA;<#IQ=3\C
+M:2$X0$1/(353+U8A,CD^:DHL?CX*<CM18F)N:$PS-7)6;&MM;6UD0BIQ=3\D
+M7G([46-@;R4S<R5R.U8Y?CX*<CM18R5N;5];*7)6;&P];CPA7E%Q67!1)6T^
+M<3UH<E9L;"%N;%!M1'([5CE^/@IR.U%C3&\A)C))<E9L;&-N1"(D*G%9<%$]
+M;4)C;$ER5FQL-6YP<&4W<CM6.7X^"G([46)B;FA,,S5R5FQK;6XT*DHD<5HC
+M<%UR.U%C8&\E,W,E<CM6.7X^"G([46,E;FU?6RER5FQL/6X\(5\S<G(R=6YR
+M<C)U2VT^<3UH<E9L;"%N;%!M1'([5CE^/@IR.U%C3&\A)C))<E9L;&-N1"(D
+M.W)R,G5S<G(R=5EM0F-L27)6;&PU;G!P93=R.U8Y?CX*<CM18F)N:$PS-7)6
+M;&MM;C0J2RMR<C)U:G)6=3EA<CM18V!O)3-S)7([5CE^/@IR.U%C)6YM7ULI
+M<E9L;#UN5SQG4G)R,R-A:#Y;15-Q(48N0V%3;"P]6%)=2&Y84VDJ2WX^"G([
+M46-,;R$F,DER5FQL8VY?/2TK<G(S(V]O8")J:G%8*%=I9T%6)$]?(BHD5E\C
+M-#1??CX*<CM18F)N:$PS-7)6;&MM;D]%4R5R<C,C5&!R-7(I<G%U8W)M+B]D
+M+VTO-FTV?CX*<CM18R5N;5]:=')6;&Q9;E<\:#1R<CPC,')6;&PH;5HW1RAR
+M5FQL(6YL4&UN<CM6.7X^"G([46-,;R$F,D1R5FQL:VY?/2T\<G(\(U]R5FQL
+M0&U>*758<E9L;#5N<'!E5G([5CE^/@IR.U%B8FYH3#,H<E9L;$9N3T54+')R
+M/")7<E9U.6%R.U%C8&\E,W,O<CM6.7X^"G([46,E;FU?6E=R5FQL7VYR5W!9
+M<G(S)FE/93M54"$X4B(H(3D])5@A+G-C1"$S2"MU2BQ^/@IR.U%C3&\A)C(V
+M<E9L;&UO)5@V+G)R,R9S9W4O+S(A.6EJ6"$Z.5MA(3(X=#<A-5-/-$HL?CX*
+M<CM18F)N:$PR5G)6;&Q2;FI@7#)R<C,F8#=P8RQN;68J+F$A.3-3)2$Z.5A@
+M2BQ^/@IR.U%C3&YM7UI$<CM18F%O.',E0W)R,RE!3V-E<BUR<D%$4T]3;RM9
+M1T]E:3EB4%]":GX^"G([46-@;R$F,BQR.U%C4F]`<S]#<G(S*6=G=%]=)W)R
+M0E5U6R]"<2A225EN+V9?:V,B?CX*<CM18T!N:$PR/7([46%Q;S$F9D5R<C,H
+M<3=N.T0V<S9F;6%R<D-S269$=$]`<RIT?CX*<CM18TQN4D12;')6;&PH;U0Y
+M+6)R5FQT94]C9'5G<G)";BE/.'5"6W,W)S%K:3M%5BI^/@IR.U%C8&Y:8"EJ
+M<E9L;%QO7#E(,G)6;'569W1?1'1R<D-5/5II2B]%<S<H6#]K4%E`,7X^"G([
+M46-`;DTQ*SAR5FQK2V],06X_<E9L<W4W;CEC77,V9FUA<S<K7T%Q(R@O0GX^
+M"G%U/S%R(3<H44,A-S$[(B$Z9R=G(3=Q+C,A,F9?<"$Z9E$_(3<H44,A-V=8
+M0B$L7U<U2BQ^/@IQ=3\R:R$Y83U<(3I=6#DA.VQC<2$Z<"U%(3D])5@A.SYO
+M:"$X9%Q3(3DA1B$A,%(P64HL?CX*<74_,4$A-4I,-"$S8R-B(3EJ1EXA-'(O
+M(B$L1$@S;D=@0&,A.S5P."$X6U!02BQ^/@IQ=399/VYM7UIT<E9L;&UO;U0V
+M8W)6;&MP<DLN*E1R5FQL*&Y7,V)`<E9L:VMN;%!M8W%U.S!^/@IQ=39:+F\A
+M)C)$<E9L;')P(E11,W)6;&Q8<E,N1$]R5FQL0&Y;)CMI<E9L;"UN<'!E3G%U
+M.S!^/@IQ=398:6YH3#,H<E9L;&EO9UTB0')6;&LT<D,V:UMR5G5"9'([46-=
+M;R4S<RQQ=3LP?CX*<74V65QN;5]:1'([46,G<#5O0$9R<C)U8'(O:"$Q<E9L
+M;%AN<DYJ47([46)`;FQ0;E=Q=3LP?CX*<74V6CQO(28R+'([46-;<#UO6D9R
+M<C)U;G(W:#M#<E9L;&%O(4%$.W([46)B;G!P9C!Q=3LP?CX*<74V63IN:$PR
+M/7([46)*<"XC+$AR<C)U4W(G<&%U<CM:/&1R.U%C4V\E,W,]<74[,'X^"G%U
+M-EHN;E)$4EER5FQL67!1-4AE<E9L;"]R+V=U8W([46)U;SAI=#1R5FQL56YL
+M4&U$<5EU)WX^"G%U-EI0;EI@*6!R5FQL:W!9-6,U<E9L;%YR-V@[.'([46,[
+M;SQ<36%R5FQL7&YP<&4W<5EU)WX^"G%U-EEM;DTQ*G1R5FQL1G!)/C1"<E9L
+M:U9R)W!A/'([6C]E<CM18VQO)3-S)7%9=2=^/@IQ=39:56Y21%%J<CM18R%P
+M;%!22')6;&MB<6E,;5)R5FQL6&]4,"=3<CM18FIN;%!N0G%9=2=^/@IQ=39:
+M8VY:8"D^<CM18UEP=%!L2')6;&Q3<7%-,DUR5FQL86]8(E8]<CM18RQN<'!F
+M(7%9=2=^/@IQ=39:3&Y-,2EO<CM18CYP9%D^2G)6;&IR<6%565ER.UI"9G([
+M46-=;R4S<SAQ674G?CX*<5EP4#1N4D12;')6;&Q?<3)K6F=R5FQL2W%.,60O
+M<CM18G5O;TLQ-G)6;&]K0&4S7"55)B)?/7X^"G%9<%$H;EI@*6IR5FQL;7$Z
+M:W4W<E9L;&=Q5C(I07([46,[;W,]7V-R5FQO;4T]6CAU7$<_+U1^/@IQ67!/
+M6VY-,2LX<E9L;%)Q*G1&1')6;&PO<48Z3W-R.UI%9W([469R9T!.<7-L,71`
+M,'X^"G%9<%!E;E)$4BAR.U%C/'%.,61*<E9L;"AQ3C%C87([46-7<#5F.6IR
+M.U%B=6\R;"0Q<"5E5SQ^/@IQ67!10&Y:8"E(<CM18V)Q5C(I2G)6;&Q<<58R
+M*39R.U%C8'`Y6&A-<CM18S1O-S9Q*7!<1FD^?CX*<5EP4$9N33$J-'([46)L
+M<48Z4$QR5FQK2W%&.D\Z<74_/V=R.U%C8&]`3RHB<E8_2D1^/@IQ67!1-VY2
+M1%0Z;2\V:V!666Q05EAO.#@B<2)4<T]N8FE#95TH:#]F5CXQ(V@A5DMP;STY
+M,FUH<2,^:GX^"G%9<%%4;EI@+"=P)BMG:6HX0%LT:F\L,EIR5C4N2G%U)$AO
+M9"YJ<TM?65@V,B%67TA#2D@Z5FIQ(SYJ?CX*<5EP421N33$L,&IO(RQ90T%>
+M4B5&;T0]/V]?.F]6:VMT2E-R<75C<W)3)&YR(5-;/D1S*G1^/@IQ/E5',VY2
+M1%%@<CM19F92+TXM26@^4C]2:#XA*C1A4V,F/7!M.FD](4Q.*DQR<D%$6#TY
+M,FUH<%TC87X^"G$^54@G;EI@*3ER.U%F<&A9;#0P;U]N9&EO7T`R06UE;2AC
+M<5)123`A4"YA=7)R0CIQ2D@Z5FIP72-A?CX*<3Y51EIN33$I8G([469=.W5+
+M,F1@<C5O.V!Q5R4H55QK*61R<6Q=<6M/9$,M9T$H1D)*+'X^"G$^54=D;C<I
+M241R.U%O8E(D(4UU<CM18S5P;%!12W%U-EI6<6E#:49L35597F5A=7)%1#MB
+M+69*+'X^"G$^54@_;C]$=59R.U%O<&A6/V]#<CM18U]P=%!L+7%U-EI?<6TV
+M0S=N8FE#96DZ35(D3VQU2#Q*+'X^"G$^54=%;C%K(5ER.U%O53MB)SY6<CM1
+M8F%P9%D\:G%:)$5K<74V6FAO6VHS(W$B1F`\?CX*<3Y52%-N-RE+.7`F*V=L
+M;$)M7D9R.U%C(7!1-4DL<74V6DAR2R4F2&Q-55E?;VMJ02@A2S]>17,J='X^
+M"G$^54AA;C]%(R9Q65X_<7!T:F9J<CM18UEP635C/G%U-EI6<DYL53EN8FE#
+M9G!1/BTB(4X^8F-S*G1^/@IQ/E5(2FXQ:R,O;RDO3&EH+#]H)G([46(^<$D^
+M-'!Q6B1+;7%U-EUQ:#U=1"1J4V5C3THL?CX*<2,Z/D]N-RE(2W%U-F!?5$%"
+M1T9P-6\_27%9<%U24W)F/"AQ=3992G`O:#])96%R9FM^/@IQ(SH_-6X_1'4O
+M<74V8&UI.E%S27`];UHK<5EP75Y=<U`_/W%U-EEI<#0S-SQI.DAU(7X^"G$C
+M.CXJ;C%J=4=Q=39@4C](,G!#<"XC*FAQ/EY(;G%9<%%4<#U+12IP)2\S-GX^
+M"G$C.C\U;7!C/VAQ=3]=:W([6D=0(39'(3DA4VU*27)R041</3D\/S5I.C9H
+M='X^"G$C.C]2;B0I;#QQ=3]=<'([6DA&(3I+6U\A53!#5W)R0CIU2DA#=$1K
+M3TI3)GX^"G$C.C\B;6M/;&UQ=3]=9W([6D9;(3)+*6$A.6$N,"%O/"PY;F,K
+M*WX^"G!<=#4[;7!C/VAP)D9=22%,5S!$<G)":S-*8V=T-6).94YQ2BQ^/@IP
+M7'0V*FXD*6P\<"9&7C\A5"I60W)R0T9#5&!?-R]F7DHX+DHL?CX*<%QT-&5M
+M:T]L;7`F1EQ4(44W:$=R<D118VE72CDN;T0W;E1*+'X^"G!<=#8];55(-F=P
+M06%C22%.+%E#<RIT?CX*<%QT-E9M76-C.W!!860_(518+C!S*G1^/@IP7'0V
+M+FU0-&-L<$%A8E0A1U\X6',J='X^"G!!62Q-;55(.6AP)5Q/9599(W5/5EE*
+M9$-*+'X^"G!!62TS;5UC9CQQ63HG:FHW32LM:CA)53!*+'X^"G!!62PH;5`T
+M9FUO*&`T8D-`:R%S0T!P+5A*+'X^"G!!62U0;3HM,$EI<5=.5FY>8D]94B].
+M+4U2)R(S56Y>9%]J?CX*<$%9+5YM0DA=+6Y'*B)D<7-S*#=H66PT-&A7/2AO
+M<7!T9'1^/@IP05DM1VTT;EU%9R5B4DUK9&TN*#MU2S)H.V<B2CUK9V]C87X^
+M"G`F/B-I;3HM,#9:+"1":7X^"G`F/B1`;4)(72-F64E..WX^"G`F/B-.;31N
+M72Q21$%I47X^"G`F/B=C1T\O9C]*0W%A/4HL?CX*<"8^)VA=0FQD)U\A2G(\
+M2BQ^/@IP)CXG8#E>1DTX/4YN65Y*+'X^"F]@(G!.;#TP:E!C2VM+-6-"4#90
+M<"1?;EYM*CXZ<G,J='X^"F]@(G!<;$5,0B]K3FDM3FM+,C,Y<5@]1F-P(VPR
+M1',J='X^"F]@(G!%;#=R0D]>6RAN)EY.+#I*;R=C4UMJ:$Q"67,J='X^"F]$
+M7&<F;"%J9#U6<DDW2"%O9RPE<BIO;EQ09"].9&TO-FMH;2M"<W%6:2,^)%HQ
+M2B%'?CX*;T1<9TAL*C$\)64J=6\M(7$]6TYR,S9&0&%K-65#<"8K9W%P)$0E
+M=&4F06,C9EYO+&Y^/@IO1%QF96MQ5SPV3C=M8B0A;FE.*W(E7$9816=A7&1J
+M;R,L86II:W(Z3BM'-"]226=(+WX^"F\I05U=:T`T6#U4(D5907%U-F9C9EAM
+M8"%K0#1,5F\I1C1^/@IO*4%>.&M(4#`E8TI`:EMQ=39F;&TK;W0A:TA0)"]O
+M*48T?CX*;RE!73YK.R$P-DHC,4).<74V9EQB8EUE7VL[(218;RE&-'X^"F\I
+M06%@2D$U4G!*1R9,-4HL?CX*;RE!865><5LL5%\C(5@E2BQ^/@IO*4%A73U-
+M2%1L/5)U)5]*+'X^"FYC)EA?2D%'7G)$/B%((4HL?CX*;F,F6&1><6TX5EME
+M9D]O2BQ^/@IN8R987#U-6F!N-5`B0$5*+'X^"FY'8$]+1#A4:6%$.W0G8DHL
+M?CX*;D=@3UE;7V\_3EMD8&5D2BQ^/@IN1V!/0C5*;S57-4T^42M*+'X^"FXL
+M149*1#AF=6-$.W0D84HL?CX*;BQ%1EA;8"Q+4%MD8&)C2BQ^/@IN+$5&035+
+M+$%9-4T^3BI*+'X^"FUF*CU<2D(I+B-*120B<THL?CX*;68J/6%><DY<7%\A
+M<&1L2BQ^/@IM9BH]63U./"]T/5`\+4)*+'X^"FU*9#1;351+/R]*1R8],$HL
+M?CX*;4ID-&!@43Y`8U\C(4AU2BQ^/@IM2F0T6$%=6EPN/5)T:UI*+'X^"FQI
+M+7-?8D`Z3T1L:3)*?CX*;&DM=#9B2%8F;6QI,DI^/@IL:2US1&([)R=);&DR
+M2GX^"FQ-9VXQ1#EL7&U$.&MF/THL?CX*;$UG;DI;83(R6EMC-E102BQ^/@IL
+M36=N(C5,,BAC-4DP4U-*+'X^"FPR3&5.354^;S=-6#E5+4HL?CX*;#),95=@
+M4C%P:V!6)DMQ2BQ^/@IL,DQE1T%>3C<V06!@,59*+'X^"FM0:U,E1#I.*W-$
+M-V8A,DHL?CX*:U!K4T);86A68%MB7BU(2BQ^/@IK4&M29S5,:$QI-4=D44-*
+M+'X^"FLU4$I45G$U1%I6=$LS4$HL?CX*:S502EEE*#II*F4L)C4L2BQ^/@IK
+M-5!*44XW5&9C3CI1+3)*+'X^"FI3;SA)5"5D8%54)UE0/$HL?CX*:E-O.%)C
+M2BQ4*6-,<#AU2BQ^/@IJ4V\X0DHH;%Y:2BHC8FM*+'X^"FER.2E(6B,O2#`A
+M8SUK)6ER/4Y^/@II<CDI46980F)$(6LM4TYI<CU.?CX*:7(Y*4%2-E188R%>
+M1%DJ:7(]3GX^"FAU/&`F4&E:0E509CM06THL?CX*:'4\8#]A;%1C+F%L.S18
+M2BQ^/@IH=3Q?;$5O9B5716I&529*+'X^"F@^6U1-8T-4-TE`9G!Q2&-,<"-N
+M2BQ^/@IH/EM44FM+7EXL66QH5F!K4$8D-THL?CX*:#Y;5$I>3TIR13$G.C0B
+M7EMG-%Q*+'X^"F<F1#9+9E=G6G5$/D!:1D0R3U)?8TMS-F%*+'X^"F<F1#90
+M;2M"1R%;95LP,UM@+4%`:T]M3RY*+'X^"F<F1#9(8F%%2U\U4%LF/#5`;FPG
+M7EI&+TM*+'X^"F0O6"UU9"]357X^"F0O6"XT9"]357X^"F0O6"UI9"]357X^
+M"E-C/3-^/@I38STS?CX*4V,],WX^"E-C/3-^/@I38STS?CX*4V,],WX^"E-C
+M/3-^/@I38STS?CX*4V,],WX^"E-C/3-^/@I38STS?CX*4V,],WX^"E-C/3-^
+M/@I38STS?CX*4V,],WX^"B4E16YD1&%T80IS:&]W<&%G90HE)51R86EL97(*
+*96YD"B4E14]&"@``
+`
+end
+\end{chunk}
+\section{Makefile}
+This book is actually a literate program\cite{2} and can contain 
+executable source code. In particular, the Makefile for this book
+is part of the source of the book and is included below. Axiom 
+uses the ``noweb'' literate programming system by Norman Ramsey\cite{6}.
+\begin{chunk}{Makefile}
+PROJECT=clojlisp
+TANGLE=tangle
+LATEX=/usr/bin/latex
+MAKEINDEX=/usr/bin/makeindex
+UUDECODE=uudecode
+
+all: 
+	${TANGLE} ${PROJECT}.pamphlet ${PROJECT} >${PROJECT}.lisp
+	${TANGLE} ${PROJECT}.pamphlet clojureIcon.eps.uu >clojureIcon.eps.uu
+	${UUDECODE} clojureIcon.eps.uu
+	${LATEX} ${PROJECT}.pamphlet 2>/dev/null 1>/dev/null
+	${MAKEINDEX} ${PROJECT}.idx
+	${LATEX} ${PROJECT}.pamphlet
+
+\end{chunk}
+\eject
+\section{License}
+\begin{verbatim}
+Copyright (c) 2011 Timothy Daly All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+    - Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+
+    - Redistributions in binary form must reproduce the above copyright
+      notice, this list of conditions and the following disclaimer in
+      the documentation and/or other materials provided with the
+      distribution.
+
+    - Neither Timothy Daly nor the names of its contributors may be used 
+      to endorse or promote products derived from this software without 
+      specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
+IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER
+OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+\end{verbatim}
+\begin{thebibliography}{99}
+\bibitem{1} Knuth, Donald E., ``Literate Programming''
+Center for the Study of Language and Information
+ISBN 0-937073-81-4
+Stanford CA (1992) 
+\bibitem{2} Lamport, Leslie, ``Latex -- A Document Preparation System'',
+Addison-Wesley, New York ISBN 0-201-52983-1
+\end{thebibliography}
+\printindex
+\end{document}

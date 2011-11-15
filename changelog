@@ -1,0 +1,6 @@
+20111114 tpd 20111114.01.tpd.patch initial pamphlet and REPL
+20111114 tpd Makefile cache Makefile
+20111114 tpd clojureIcon.eps cache icon
+20111114 tpd tangle.c cache tangle code
+20111114 tpd axiom.sty style file for pamphlet
+20111114 tpd clojlisp.pamphlet created
