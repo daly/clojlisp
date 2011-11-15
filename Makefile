@@ -3,6 +3,7 @@ TANGLE=tangle
 LATEX=/usr/bin/latex
 MAKEINDEX=/usr/bin/makeindex
 UUDECODE=uudecode
+PDF=dvipdf
 
 all: 
 	${TANGLE} ${PROJECT}.pamphlet ${PROJECT} >${PROJECT}.lisp
@@ -11,5 +12,5 @@ all:
 	${LATEX} ${PROJECT}.pamphlet 2>/dev/null 1>/dev/null
 	${MAKEINDEX} ${PROJECT}.idx
 	${LATEX} ${PROJECT}.pamphlet
-
+	${PDF} ${PROJECT}.dvi
 

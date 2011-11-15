@@ -1,73 +1,546 @@
-\documentclass[dvipdfm]{book}
-\usepackage{hyperref}
-\usepackage{axiom}
+\documentclass{book}
+\usepackage{verbatim}
 \usepackage{makeidx}
-\setlength{\textwidth}{400pt}
-\makeindex
+\usepackage{pstricks}
+\usepackage{pst-node}
+\usepackage{pst-tree}
+\usepackage{hyperref}
 \usepackage{graphicx}
+% make underscore be an ordinary character
+\catcode`\_=12 
+% we need to have an index
+\makeindex
+\raggedbottom
 
-% draw a box around a text block
-\providecommand\boxed[2]{%
+%%% Tim Daly %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Define tags to make refs and indexes pretty
+\newcommand{\defclass}[1]{% e.g. \defclass{classname}
+\label{#1}%
+\index{#1}%
+\index{Class!#1}%
+\index{#1!Class}}
+
+%%% Tim Daly %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Define tags to make refs and indexes pretty
+\newcommand{\defsubclass}[2]{% e.g. \defsubclass{classname}{subclassname}
+\label{#2}%
+\index{#1\$#2}%
+\index{Class!#2\ in\ \pageref{#1}}%
+\index{#2,\ class in\ \pageref{#1}}}
+
+%%% Tim Daly %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Define tags to make refs and indexes pretty
+\newcommand{\definterface}[1]{% e.g. \definterface{ifname}
+\label{#1}%
+\index{#1}%
+\index{Interface!#1}%
+\index{#1!Interface}}
+
+%%% Tim Daly %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Define tags to make refs and indexes pretty
+\newcommand{\defmethod}[2]{% e.g. \defmethod{classname}{methodname}
+\label{#2}%
+\index{#1.#2}%
+\index{#2,\ method\ in\ \pageref{#1}}}
+
+%%% Tim Daly %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Define tags to make refs and indexes pretty
+\newcommand{\implements}[2]{% e.g. \implements{class}{interface}
+(#2 [\pageref{#2}])%
+\index{Implements!#2,\ by\ #1}%
+\index{#1!\ implements\ \pageref{#2}}%
+\index{#2!\ implemented\ by\ \pageref{#1}}}
+
+%%% Tim Daly %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Define tags to make refs and indexes pretty
+\newcommand{\extends}[2]{% e.g. \extends{class}{interface}
+(#2 [\pageref{#2}])%
+\index{Extends!#2,\ by\ #1}%
+\index{#1!\ extends\ \pageref{#2}}%
+\index{#2!\ extended\ by\ \pageref{#1}}}
+
+%%% Tim Daly %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Make our own sectioning commands
+\newcommand{\defsection}[1]{% e.g. \defsection{sectionname}
+\newpage%
+\section{#1}%
+\label{#1}}
+
+%%% Tim Daly %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Make our own sectioning commands
+\newcommand{\defsubsection}[1]{% e.g. \defsubsection{sectionname}
+\subsection{{#1}}%
+\label{#1}}
+
+%%% Tim Daly %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Make our own references so we can have hyperlinks in pdfs
+\newcommand{\refto}[1]{% e.g. \refto{name}
+\index{#1}%
+[\pageref{#1}] #1}
+
+%%% Tim Daly %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% a pretty box around some example text for quoting and examples
+%%% boxed{boxcolor}{textcolor}{width}{text}
+%%% boxed{yellow}{black}{4.6in}{text}
+\providecommand\boxed[4]{% \boxed{boxcolor}{textcolor}{width}{text}
 \begin{center}
 \begin{tabular}{|c|}
 \hline
-\begin{minipage}{#1}
+\fcolorbox{#1}{#2}{
+\begin{minipage}{#3}
 \normalsize
-{#2}
-\end{minipage}\\
+{#4}\hfill
+\end{minipage}}\\
 \hline
 \end{tabular}
 \end{center}}
 
+%%% Tim Daly %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% a colored box around quotes
+%%% boxed{boxcolor}{textcolor}{width}{text}
+%%% boxed{yellow}{black}{4.6in}{text}
+\providecommand\quoteme[4]{% \boxed{boxcolor}{textcolor}{width}{text}
+\begin{center}
+\fcolorbox{#1}{#2}{
+\begin{minipage}{#3}
+\normalsize
+{#4}\hfill
+\end{minipage}}\\
+\end{center}}
+
+%%% Tim Daly %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% define the text and background colors for REPL boxes
+\definecolor{ExampleTextColor}{rgb}{0.5 1.0 1.0}
+\definecolor{ExampleBackColor}{rgb}{0.5.0.0 0.0}
+
+%%% Tim Daly %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% a colored box around quotes
+%%% boxed{boxcolor}{textcolor}{width}{text}
+%%% boxed{yellow}{black}{4.6in}{text}
+\providecommand\forexample[1]{% \boxed{boxcolor}{textcolor}{width}{text}
+\begin{center}
+\fcolorbox{ExampleBackColor}{ExampleTextColor}{
+\begin{minipage}{4.6in}
+\normalsize
+{#1}\hfill
+\end{minipage}}\\
+\end{center}}
+
+%%% Tim Daly %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% REPL shows a prompt line and the response
+%%% e.g. repl{(+ 2 3)}{5}
+\providecommand\repl[2]{% \repl{input}{output}
+\forexample{\noindent$>$\ {#1}\\{#2}}}
+
+
+%%% Tim Daly %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% The literate environments commands %%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%% Tim Daly %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% The begin{chunk} environment
+\newenvironment{chunk}[1]{%   we need the chunkname as an argument
+{\ }\newline\noindent%                    make sure we are in column 1
+%{\small $\backslash{}$begin\{chunk\}\{{\bf #1}\}}% alternate begin mark
+\hbox{\hskip 2.0cm}{\bf --- #1 ---}%      mark the beginning
+\verbatim}%                               say exactly what we see
+{\endverbatim%                            process \end{chunk}
+\par{}%                                   we add a newline
+\noindent{}%                              start in column 1
+\hbox{\hskip 2.0cm}{\bf ----------}%      mark the end
+%$\backslash{}$end\{chunk\}%              alternate end mark (commented)
+\par%                                     and a newline
+\normalsize\noindent}%                    and return to the document
+
+%%% Tim Daly %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% the getchunk command
+\providecommand{\getchunk}[1]{%
+\noindent%
+{\small $\backslash{}$begin\{chunk\}\{{\bf #1}\}}% mark the reference
+\index{{#1}}}
+
+%%% Tim Daly %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% make the chunk font smaller
+\chardef\atcode=\catcode`\@
+\catcode`\@=11
+\renewcommand{\verbatim@font}{\ttfamily\small}
+\catcode`\@=\atcode
+
+%%% Tim Daly %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% we need a single column index so write our own
+\renewenvironment{theindex}{
+ {\Huge {\bf {\hskip 1.0in}Index}}%
+ \thispagestyle{plain}%    \parindent\z@%
+ \begin{itemize}%
+ \setlength{\itemsep}{1pt}%
+ \setlength{\parskip}{0pt}%
+ \setlength{\parsep}{0pt}%
+}{\end{itemize}\clearpage}
+
+%%% Tim Daly %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% we need a packed itemize so write our own
+\newenvironment{packeditemize}{%
+\begin{itemize}%
+\setlength{\itemsep}{1pt}%
+\setlength{\parskip}{0pt}%
+\setlength{\parsep}{0pt}%
+}{\end{itemize}}
+
+
+%%% Tim Daly %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% leave notes for future work
+\newcommand{\tpdhere}[1]{% e.g. \tpdhere{Some note}
+{\bf TPDHERE: #1}%
+\index{TPDHERE!{#1}}}
+
 \begin{document}
+%%% Tim Daly %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{titlepage}
 \center{\includegraphics{clojureIcon.eps}}
 \vskip 0.1in
-%\includegraphics{}\\
 \vskip 0.1in
 \center{{\Huge{Clojure in Common Lisp}}}
 \vskip 0.1in
 \center{\huge{Timothy Daly}}
-\end{titlepage}
-\pagenumbering{roman}
-\begin{verbatim}
-Portions Copyright (c) 2011 Timothy Daly
-
-The Blue Bayou image Copyright (c) 2004 Jocelyn Guidry
-
-\end{verbatim}
-
-Inclusion of names in the list of credits is based on historical
-information and is as accurate as possible. Inclusion of names
-does not in any way imply an endorsement but represents historical
-influence on Axiom development.
-\vfill
-\eject
+\vskip 0.1in
+\center{\large{\today}}
+%%% Tim Daly %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Make sure everyone gets credit
+\begin{center}
 \begin{tabular}{lll}
 \end{tabular}
-\eject
+\end{center}
+\vskip 0.1in
+\end{titlepage}
+
+
+%%% Tim Daly %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Use roman numeral pages for frontmatter
+\pagenumbering{roman}
+
+%%% Tim Daly %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% because I add lines to the toc, the toc is 4.5pts too wide
+%%% so I use this hack to fix it -- TimDaly
+\makeatletter
+\renewcommand{\@pnumwidth}{2.75em}
+\renewcommand{\@tocrmarg}{2.75em}
+\makeatother
 \tableofcontents
 \vfill
 \eject
+
+%%% Tim Daly %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Make the forward be business block text style
 \setlength{\parindent}{0em}
 \setlength{\parskip}{1ex}
-{\Large{\bf New Foreword}}
+{\Large{\bf Foreword}}
 \vskip .25in
 
-This is an implementation of Clojure in Common Lisp, called ClojLisp.
+Rich Hickey invented Clojure. 
+This is a fork of the project to build
+Clojure in Common Lisp. 
+
+We would like to have these new lisp ideas available in a standard
+common lisp environment. There will be some language changes due to
+the loss of Java and some enhancements due to Common Lisp. This is
+unavoidable but within the spirit of Clojure.
+
+Every effort is made to give credit for any and all contributions.
+
+We are also experimenting with literate
+programming as a development and documentation technology.
+
+Clojure is a break with the past traditions of Lisp.  This literate
+fork is a break with the past traditions of code development.  As such
+it is intended as an experiment, not a replacement or competition with
+the official version of Clojure.
 
 \vskip .25in
 %\noindent
-Tim Daly\\
-Literate Software\\
-November 14, 2011 ((iHy))
+Timothy Daly\\
+November 10, 2011 ((iHy))
 \vfill
 \eject
+
+%%% Tim Daly %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Start using regular numbers
 \pagenumbering{arabic}
 \setcounter{chapter}{0} % Chapter 1
+%\textunderscore
 
-\chapter{Introduction}
+%%% Tim Daly %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% fix the preface in the table of contents
+\frontmatter
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Preface  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%% Tim Daly %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Make this fake chapter show up in the table of contents
+\cleardoublepage
+\phantomsection
+{\bf {\Large Preface: Why Literate Programming}}
+\addcontentsline{toc}{chapter}{Preface: Why Literate Programming}
+
+{\vbox {\vskip 0.3in}}
+
+This is a literate program, inspired by Donald Knuth \cite{Knu84}. It is
+intended to be read like a novel from cover to cover. The ideas are 
+expressed clearly but they are grounded in the actual source code.
+
+The code in this documment is the executable source. The chapter
+\refto{building} on Building ClojLisp gives the procedure for building
+a running system from the enclosed sources.
+
+Most programmers are still locked into the idea of making a program
+out of a large pile of tiny files containing pieces of programs.
+They do not realize that this organization was forced by the fact
+that machines like the PDP 11 only had 8k of memory and a limit
+of 4k buffers in the editor. Thus there was a lot of machinery built
+up, such as overlay linkers, to try to reconstruct the whole program.
+
+The time has come to move into a more rational means of creating and
+maintaining programs. Knuth suggested we write programs like we write
+literature, with the idea that we are trying to communicate the ideas
+to other people. The fact that the machine can also run the programs
+is a useful side-effect but not important.
+
+Very few people have seen a literate program so this is intended 
+as a complete working example, published in book form. The intent
+is that you can sit and read this book like any other novel. At 
+the end of it you will be familiar with the ideas and how those
+ideas are actually expressed in the code.
+
+If programmers can read it and understand it then they can maintain
+and modify it. The ideas will have been communicated. The code will
+be changed to match changes in the idea. We will all benefit.
+
+I've tried to make it as simple as possible. 
+Try it once, you might like it.
+
+%%% Tim Daly %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Make this fake section show up in the table of contents
+{\bf {\large Steps to build ClojLisp}}
+\addcontentsline{toc}{section}{Steps to build Clojure}
+{\vbox {\vskip 0.1in}}
+
+{\bf Step 1}
+
+We will be using SBCL as the initial development environment so you
+need to get an SBCL version running.
+
+You also need the C program \refto{tangle.c} which you can clip
+from this file using a text editor and save it as tangle.c.  If you
+got this file from a git repository the tangle.c program is probably
+already available. The tangle program is used to extract the source
+files from this document.
+
+{\bf Step 2}
+
+Compile tangle.c to create a function called tangle.
+\begin{verbatim}
+    gcc -o tangle tangle.c
+\end{verbatim}
+
+{\bf Step 3}
+
+Run tangle to extract the \refto{Makefile} from this document.
+\begin{verbatim}
+    ./tangle clojure.pamphlet Makefile >Makefile
+\end{verbatim}
+
+{\bf Step 4}
+
+Running make will create a PDF of the documentation and will 
+create the clojlisp.lisp file containing the latest source code.
+\begin{verbatim}
+    make
+\end{verbatim}
+
+{\bf Step 5}
+
+Start lisp, change to the new package, and start the REPL.
+\begin{verbatim}
+    sbcl
+    (load "clojlisp.lisp")
+    (in-package "CLOJLISP")
+    (clojlisp)
+\end{verbatim}
+The new REPL knows almost nothing at all. In particular, it has no
+functions and no symbols defined yet so you need to qualify everything.
+For example,
+\begin{verbatim}
+    (common-lisp::+ 2 3)
+\end{verbatim}
+
+To exit the program type:
+\begin{verbatim}
+    (sb-ext:quit)
+\end{verbatim}
+
+%%% Tim Daly %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Make this fake section show up in the table of contents
+{\vbox {\vskip 0.1in}}
+{\bf {\large Steps to change Clojure}}
+\addcontentsline{toc}{section}{Steps to change Clojure}
+{\vbox {\vskip 0.1in}}
+
+Working in literate programming is simple. You need an editor and a
+command line. Make changes directly to this document using the editor
+and then type
+\begin{verbatim}
+    make
+\end{verbatim}
+This will destroy the old source and rebuild the clojlisp.lisp file.
+
+If you change the Makefile section in the document you will have to
+extract it before the changes take effect:
+\begin{verbatim}
+    ./tangle clojlisp.pamphlet Makefile >Makefile
+\end{verbatim}
+
+If you are working in Linux it is very effective to use emacs
+with a split screen. Start a command line in one buffer and a 
+shell in the other buffer. If you start xdvi running in the
+background you will immediately see the ``printed'' form of the
+document every time you switch to the xdvi window.
+\begin{verbatim}
+    xdvi clojlisp.dvi &
+\end{verbatim}
+
+The same trick can be used with the PDf file instead. Both xdvi and
+xpdf will update automatically when the file is changed on disk.
+\begin{verbatim}
+    xpdf clojlisp.pdf &
+\end{verbatim}
+
+Resist the urge to edit the clojlisp.lisp file.  It is only there for
+the computer. Edit this file directly. Be sure to write words to 
+communicate your ideas just as you would when writing a book.
+The machine code is secondary and intended to make the ideas concrete.
+
+%%% Tim Daly %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Make this fake section show up in the table of contents
+{\vbox {\vskip 0.1in}}
+{\bf {\large Why Bother?}}
+\addcontentsline{toc}{section}{Why Bother?}
+{\vbox {\vskip 0.1in}}
+
+Why bother with such a difficult method of programming? Because 
+worthwhile programs should ``live''.
+
+Programs ``live'' because people maintain them. Maintaining and
+modifying code correctly requires that you understand why the program
+is written as it is, what the key ideas that make the program work,
+and why certain, not very obvious, pieces of code exist. Programmers
+almost never write this information down anywhere. Great ideas are
+invented, the code is written, a man page of documentation is created,
+and the job is done.
+
+Well, almost. What does is mean for a program to ``live''? How does a
+program survive once the original developers leave the project? There
+are many sources of information but almost no source of knowledge.
+New programmers don't know what the ``elders'' know. In order to ``live''
+and continue to grow there has to be a way to transmit this knowledge.
+
+Literate programming is Knuth's proposed idea for moving from the
+world of ideas to the world of information. This is not simply another
+documentation format. This is meant to be {\bf Literature}. The ideas
+are presented, the implications are explored, the tradeoffs are discussed,
+and the code is ``motivated'', like characters in a novel.
+
+You are encouraged to write or rewrite sections of this document to
+improve the communication with the readers.
+
+``But I have to learn latex!''. Well, for this document you do.
+But \LaTeX is no more than a document markup language like
+HTML and it is no harder to learn. It gives you the added advantage
+that you have a real language for publishing real documents. Most
+books are typeset with this technology and a lot of conferences
+and Journals require it. If you can learn Clojure, you can learn
+\LaTeX. If you're a programmer you will always need to continue
+to learn, at least until you retire into management.
+
+Having used literate programming for years I have collected some key
+quotes that might stimulate your interest.
+
+\quoteme{gray}{yellow}{4.6in}
+{\vskip 0.1cm
+I believe that the time is ripe for significantly better documentation
+of programs, and that we can best achieve this by considering programs
+to be works of literature. Hence, my title ``Literate Programming''. 
+Let us change our traditional attitude to the construction of programs.
+Instead of imagining that our main task is to instruct a computer what to 
+do, let us concentrate on explaining to human beings what we want a
+computer to do.
+
+{\bf --Donald Knuth ``Literate Programming (1984)''}}
+
+
+\quoteme{gray}{yellow}{4.6in}
+{\vskip 0.1cm
+Step away from the machine. Literate programming has nothing to do with
+tools or style. It has very little to do with programming. One of the
+hard transitions to literate programming is ``literate thinking''.
+
+{\bf --Timothy Daly in Lambda the Ultimate (2010)}}
+
+\quoteme{gray}{yellow}{4.6in}
+{\vskip 0.1cm
+The effect of this simple shift of emphasis can be so profound as to 
+change one's whole approach to programming. Under the literate programming
+paradigm, the central activity of programming becomes that of conveying
+meaning to other intelligent beings rather than merely convincing the
+computer to behave in a particular way. It is the difference between
+performing and exposing a magic trick.
+
+{\bf --Ross Williams, FunnelWeb Tutorial Manual}}
+
+\quoteme{gray}{yellow}{4.6in}
+{\vskip 0.1cm
+Another thing I've been enjoying lately is literate programming. Amazingly
+it turns out to be faster to write a literate program than an ordinary
+program because debugging takes almost no time.
+
+{\bf --Bill Hart, SAGE Mailing list, May 3, 2010}}
+
+\quoteme{gray}{yellow}{4.6in}
+{\vskip 0.1cm
+The conversation is much more direct if the Design Concept per se, rather
+than derivative representatives or partial details, is the focus.
+
+{\bf --Fred Brooks, ``The Design of Design''}}
+
+\quoteme{gray}{yellow}{4.6in}
+{\vskip 0.1cm
+We are banning the old notion of literate programming that I used when
+developing \TeX{}82 because documentation has proven to be too much of
+a pain.
+
+{\bf --Donald Knuth TUG 2010}}
+
+\quoteme{gray}{yellow}{4.6in}
+{\vskip 0.1cm
+Once upon a time I took great care to ensure that \TeX{}82 would be truly
+archival so that results obtainable today would produce the same output
+50 years from now but that was manifestly foolish. Let's face it, who is
+going to care one whit for what I do today after even 5 years have
+elapsed, let alone 50. Life is too short to re-read anything anymore
+in the internet age. Nothing over 30 months old is trustworthy or
+interesting.
+
+{\bf --Donald Knuth TUG 2010}}
+
+\mainmatter
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% From ideas to implementation %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{From ideas to implementation}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%\defsection{}
 
 \chapter{The clojlisp package}
 We are defining a lisp-in-lisp so there will be a significant number
@@ -90,9 +563,8 @@ The reader uses the common lisp reader.
 \end{chunk}
 
 \chapter{The Evaluator}
-
-\begin{chunk}{defmacro eval}
 The evaluator uses the common lisp evaluator.
+\begin{chunk}{defmacro eval}
 (common-lisp::defmacro clojlisp::eval (x) `(common-lisp::eval ,x))
 \end{chunk}
 
@@ -105,6 +577,7 @@ The printer uses the common lisp printer.
 \chapter{The Clojlisp REPL}
 By typing
 \begin{verbatim}
+   (load "clojlisp.lisp")
    (in-package "CLOJLISP")
    (clojlisp)
 \end{verbatim}
@@ -123,10 +596,12 @@ that come from any other package at the moment. A working example is:
   (common-lisp::terpri)))
 \end{chunk}
 
-\chapter{Building ClojLisp from this document}
+\chapter{Building ClojLisp}
+\label{building}
 This is the whole source listing in one file.
 When loaded, it leaves you in the clojlisp REPL.
-\section{The whole thing}
+If you define a new chunk, add it here.
+\defsection{The whole thing}
 \begin{chunk}{clojlisp}
 \getchunk{defpackage clojlisp}
 \getchunk{defun read}
@@ -135,7 +610,28 @@ When loaded, it leaves you in the clojlisp REPL.
 \getchunk{defun repl}
 \end{chunk}
 
-\section{tangle}
+\defsection{tangle.c}
+The tangle program extract pieces of this document and puts them in a file.
+Any piece that can be extracted is called a ``chunk''. Each chunk is in a
+\LaTeX {\bf chunk} environment. The tangle program expects two arguments,
+the name of this file and the chunk to extract as in:
+\begin{verbatim}
+    ./tangle clojure.pamphlet clojlisp 
+\end{verbatim}
+It outputs the chunk to standard output. To be useful, redirect the
+output to a file as in:
+\begin{verbatim}
+    ./tangle clojure.pamphlet clojlisp >clojlisp.lisp
+\end{verbatim}
+
+This trivial function walks the document looking for the named chunk.
+When it finds it the chunk is printed to standard output. The only
+exception is if the chunk contains a {\bf getchunk} markup. This is
+used to embed other chunks inline. So tangle will pause the output of
+the current chunk, find and print the getchunk reference, and then continue.
+Of course, if the getchunk reference contains an embedded getchunk we
+recurse into it. This program could be a lot smarter $\ldots$ but why?
+
 \begin{chunk}{tangle.c}
 #include <stdio.h>
 #include <stdlib.h>
@@ -298,7 +794,42 @@ int main(int argc, char *argv[]) {
    
 \end{chunk}
 
-\section{The Clojure Icon}
+\defsection{Makefile}
+This book is actually a literate program\cite{Knu84} and can contain 
+executable source code. In particular, the Makefile for this book
+is part of the source of the book and is included below. 
+
+You can extract this chunk with an editor or use the tangle function:
+\begin{verbatim}
+    ./tangle clojlisp.pamphlet Makefile >Makefile
+\end{verbatim}
+\begin{chunk}{Makefile}
+PROJECT=clojlisp
+TANGLE=tangle
+LATEX=/usr/bin/latex
+MAKEINDEX=/usr/bin/makeindex
+UUDECODE=uudecode
+PDF=dvipdf
+
+all: 
+	${TANGLE} ${PROJECT}.pamphlet ${PROJECT} >${PROJECT}.lisp
+	${TANGLE} ${PROJECT}.pamphlet clojureIcon.eps.uu >clojureIcon.eps.uu
+	${UUDECODE} clojureIcon.eps.uu
+	${LATEX} ${PROJECT}.pamphlet 2>/dev/null 1>/dev/null
+	${MAKEINDEX} ${PROJECT}.idx
+	${LATEX} ${PROJECT}.pamphlet
+	${PDF} ${PROJECT}.dvi
+
+\end{chunk}
+
+\defsection{The Clojure Icon}
+This document uses the Clojure Icon on the front page. 
+This is a uuencoded, encapsulated postscript version of the icon.
+You can recreate the {\bf clojureIcon.eps} file with:
+\begin{verbatim}
+    ./tangle clojlisp.pamphlet clojureIcon.eps.uu >clojureIcon.eps.uu
+    uudecode clojureIcon.eps.uu
+\end{verbatim}
 \begin{chunk}{clojureIcon.eps.uu}
 begin 644 clojureIcon.eps
 M)2%04RU!9&]B92TS+C`@15!31BTS+C`*)25#<F5A=&]R.B!'24U0(%!O<W13
@@ -549,29 +1080,8 @@ M/@I38STS?CX*4V,],WX^"B4E16YD1&%T80IS:&]W<&%G90HE)51R86EL97(*
 `
 end
 \end{chunk}
-\section{Makefile}
-This book is actually a literate program\cite{2} and can contain 
-executable source code. In particular, the Makefile for this book
-is part of the source of the book and is included below. Axiom 
-uses the ``noweb'' literate programming system by Norman Ramsey\cite{6}.
-\begin{chunk}{Makefile}
-PROJECT=clojlisp
-TANGLE=tangle
-LATEX=/usr/bin/latex
-MAKEINDEX=/usr/bin/makeindex
-UUDECODE=uudecode
 
-all: 
-	${TANGLE} ${PROJECT}.pamphlet ${PROJECT} >${PROJECT}.lisp
-	${TANGLE} ${PROJECT}.pamphlet clojureIcon.eps.uu >clojureIcon.eps.uu
-	${UUDECODE} clojureIcon.eps.uu
-	${LATEX} ${PROJECT}.pamphlet 2>/dev/null 1>/dev/null
-	${MAKEINDEX} ${PROJECT}.idx
-	${LATEX} ${PROJECT}.pamphlet
-
-\end{chunk}
-\eject
-\section{License}
+\defsection{License}
 \begin{verbatim}
 Copyright (c) 2011 Timothy Daly All rights reserved.
 
@@ -604,12 +1114,16 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 \end{verbatim}
 \begin{thebibliography}{99}
-\bibitem{1} Knuth, Donald E., ``Literate Programming''
+\bibitem[Knu84]{Knu84} Knuth, Donald E., 
+``Literate Programming''
 Center for the Study of Language and Information
 ISBN 0-937073-81-4
 Stanford CA (1992) 
-\bibitem{2} Lamport, Leslie, ``Latex -- A Document Preparation System'',
+\bibitem[Lam94]{Lam94} Lamport, Leslie, 
+``Latex -- A Document Preparation System'',
 Addison-Wesley, New York ISBN 0-201-52983-1
 \end{thebibliography}
+\newpage
+\noindent
 \printindex
 \end{document}

@@ -1,3 +1,9 @@
+20111115 tpd 20111115.01.tpd.patch add new user documentation
+20111115 tpd Makefile add the automatic PDF generation
+20111115 tpd clojlisp.pdf cache the PDF
+20111115 tpd clojlisp.pamphlet remove axiom.sty, add local latex tags
+20111115 tpd axiom.sty removed. extracted the latex tags into clojlisp
+20111115 tpd README document the startup process
 20111114 tpd 20111114.01.tpd.patch initial pamphlet and REPL
 20111114 tpd Makefile cache Makefile
 20111114 tpd clojureIcon.eps cache icon
