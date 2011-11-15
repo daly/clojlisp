@@ -1,3 +1,6 @@
+20111115 tpd 20111115.02.tpd.patch remove unnecessary file
+20111115 tpd clojlisp.pdf cached
+20111115 tpd clojureIcon.eps removed, generated from the document
 20111115 tpd 20111115.01.tpd.patch add new user documentation
 20111115 tpd Makefile add the automatic PDF generation
 20111115 tpd clojlisp.pdf cache the PDF
