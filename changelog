@@ -1,3 +1,8 @@
+20111116 tpd 20111116.01.tpd.patch 
+20111116 tpd Makefile add clean stanza
+20111116 tpd tangle.c removed, already in clojure.pamphlet
+20111116 tpd clojure.pdf cache
+20111116 tpd clojure.pamphlet add env global, muffle warnings, add imports
 20111115 tpd 20111115.02.tpd.patch remove unnecessary file
 20111115 tpd clojlisp.pdf cached
 20111115 tpd clojureIcon.eps removed, generated from the document

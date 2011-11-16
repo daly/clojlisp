@@ -550,28 +550,54 @@ that do not conflict.
 \begin{chunk}{defpackage clojlisp}
 #+:AKCL (make-package "COMMON-LISP" :use '("LISP"))
 #+:AKCL (in-package "USER")
+#+:SBCL (declaim (sb-ext:muffle-conditions style-warning))
+#+:SBCL (declaim (sb-ext:muffle-conditions warning))
+#+:SBCL (declaim (sb-ext:muffle-conditions sb-ext:compiler-note))
 (make-package "CLOJLISP")
 (in-package "CLOJLISP")
 
+\end{chunk}
+
+\chapter{Imported functions}
+We import some functions from other packages which have useful definitions
+or which match the semantics of Clojure.
+
+The {\tt bye} function can be used to exit the lisp system.
+\begin{chunk}{imported functions}
+#+AKCL (lisp::defun bye () (si::bye))
+#+SBCL (common-lisp::defun clojlisp::bye () (sb-ext:quit))
 
 \end{chunk}
 
 \chapter{The Reader}
 The reader uses the common lisp reader.
+
 \begin{chunk}{defun read}
-(common-lisp::defun clojlisp::read () (common-lisp::read))
+(common-lisp::defun
+  clojlisp::read (
+    common-lisp::&optional input-stream eof-error-p eof-value recursive-p)
+ (common-lisp::case
+   (common-lisp::peek-char 
+     common-lisp::nil input-stream eof-error-p eof-value recursive-p)
+  ((#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9) 
+     (common-lisp::print "number")
+     (common-lisp::terpri)
+     (common-lisp::read-char))))
+
 \end{chunk}
 
 \chapter{The Evaluator}
 The evaluator uses the common lisp evaluator.
 \begin{chunk}{defmacro eval}
 (common-lisp::defmacro clojlisp::eval (x) `(common-lisp::eval ,x))
+
 \end{chunk}
 
 \chapter{The Printer}
 The printer uses the common lisp printer.
 \begin{chunk}{defun print}
 (common-lisp::defun clojlisp::print (x) (common-lisp::print x))
+
 \end{chunk}
 
 \chapter{The Clojlisp REPL}
@@ -594,20 +620,41 @@ that come from any other package at the moment. A working example is:
     (clojlisp::eval
      (clojlisp::read)))
   (common-lisp::terpri)))
+
 \end{chunk}
 
 \chapter{Building ClojLisp}
 \label{building}
 This is the whole source listing in one file.
-When loaded, it leaves you in the clojlisp REPL.
 If you define a new chunk, add it here.
+
+\defsection{The env global environment}
+\label{globalEnv}
+We wrap all of the code in a {\tt let} construct which defines a {\tt env}
+variable. This variable is accessible from everywhere. It is intended to
+contain ``globally scoped information'' such as the current reader setting.
+Default values are kept in the {\tt env} variable.
+
+The {\tt env} variable is a stack. Managing the {\tt env} as a stack allows
+us to temporarily push information that overrides existing information.
+
+Functions that require temporary bindings can wrap a let around the function
+that rebinds {\tt env} with new information cons-ed on the front of the stack.
+Leaving the let allows the bindings to pop.
+
 \defsection{The whole thing}
 \begin{chunk}{clojlisp}
+
 \getchunk{defpackage clojlisp}
+\getchunk{imported functions}
+(common-lisp::let (env)
+
 \getchunk{defun read}
 \getchunk{defmacro eval}
 \getchunk{defun print}
 \getchunk{defun repl}
+
+)
 \end{chunk}
 
 \defsection{tangle.c}
@@ -815,10 +862,15 @@ all:
 	${TANGLE} ${PROJECT}.pamphlet ${PROJECT} >${PROJECT}.lisp
 	${TANGLE} ${PROJECT}.pamphlet clojureIcon.eps.uu >clojureIcon.eps.uu
 	${UUDECODE} clojureIcon.eps.uu
-	${LATEX} ${PROJECT}.pamphlet 2>/dev/null 1>/dev/null
+	${LATEX} ${PROJECT}.pamphlet
 	${MAKEINDEX} ${PROJECT}.idx
 	${LATEX} ${PROJECT}.pamphlet
 	${PDF} ${PROJECT}.dvi
+
+clean: 
+	rm -f ${PROJECT}.aux ${PROJECT}.idx ${PROJECT}.ilg ${PROJECT}.ind
+	rm -f ${PROJECT}.log ${PROJECT}.out ${PROJECT}.toc ${PROJECT}.aps
+	rm -f ${PROJECT}.dvi *.eps.uu *~ clojureIcon.eps
 
 \end{chunk}
 
