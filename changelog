@@ -1,3 +1,7 @@
+20111117 tpd clojlisp.pdf cached
+20111117 tpd tangle.c make it always available
+20111117 tpd Makefile clean up immediately
+20111117 tpd clojlisp.pamphlet fix Makefile to clean up immediately
 20111116 tpd 20111116.01.tpd.patch 
 20111116 tpd Makefile add clean stanza
 20111116 tpd tangle.c removed, already in clojure.pamphlet

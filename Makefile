@@ -13,8 +13,6 @@ all:
 	${MAKEINDEX} ${PROJECT}.idx
 	${LATEX} ${PROJECT}.pamphlet
 	${PDF} ${PROJECT}.dvi
-
-clean: 
 	rm -f ${PROJECT}.aux ${PROJECT}.idx ${PROJECT}.ilg ${PROJECT}.ind
 	rm -f ${PROJECT}.log ${PROJECT}.out ${PROJECT}.toc ${PROJECT}.aps
 	rm -f ${PROJECT}.dvi *.eps.uu *~ clojureIcon.eps
